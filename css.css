@@ -74,6 +74,15 @@ input[type="checkbox"] {
 }
 
 /* COLORES */
+.vital {
+    border-left: 6px solid #8e44ad;
+}   
+
+.vital .importancia {
+    background: #f3e6fa;
+    color: #8e44ad;
+}
+
 .alta {
     border-left: 6px solid #ff5a5a;
 }
@@ -206,4 +215,5 @@ input[type="checkbox"] {
   max-width: 100px;
   display: block;
   margin: 10px auto 0;
+
 }
