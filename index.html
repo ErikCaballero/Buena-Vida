@@ -139,253 +139,101 @@
 </body>
 </html>
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+// ==========================
+// CONFIG & ESTADO
+// ==========================
+const STORAGE_KEY = "habitosData";
 
-    /* =======================
-       FECHA Y STORAGE KEYS
-    ======================= */
-    const today = new Date().toISOString().split("T")[0];
+let data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+    habitos: [],
+    racha: 0,
+    ultimaFecha: null
+};
 
-    const STORAGE_HABITOS = "listaHabitos";
-    const STORAGE_ESTADO = "estado_" + today;
-    const STORAGE_RACHA = "racha";
-    const STORAGE_ULTIMO_DIA = "ultimoDia";
+// ==========================
+// UTILIDADES
+// ==========================
+const hoy = () => new Date().toISOString().split("T")[0];
 
-    /* =======================
-       ELEMENTOS DEL DOM
-    ======================= */
-    const contenedor = document.querySelector(".habitos");
-    const btnAgregar = document.getElementById("btnAgregar");
-    const modal = document.getElementById("modal");
-    const guardarBtn = document.getElementById("guardarHabito");
-    const cerrarBtn = document.getElementById("cerrarModal");
-    const nombreInput = document.getElementById("nombreHabito");
-    const importanciaSelect = document.getElementById("importanciaHabito");
-    const tituloModal = document.getElementById("tituloModal");
+function guardar() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
 
-    /* =======================
-       HÁBITOS INICIALES
-    ======================= */
-    const habitosIniciales = [
-        { id: "comer", nombre: "Comer bien", importancia: "alta" },
-        { id: "agua", nombre: "Beber 2L de agua", importancia: "alta" },
-        { id: "dormir", nombre: "Dormir bien", importancia: "alta" },
-        { id: "ejercicio", nombre: "Hacer ejercicio", importancia: "media" },
-        { id: "leer", nombre: "Leer", importancia: "baja" }
-    ];
+// ==========================
+// REINICIO DIARIO
+// ==========================
+function comprobarNuevoDia() {
+    const fechaHoy = hoy();
 
-    let habitos = JSON.parse(localStorage.getItem(STORAGE_HABITOS)) || habitosIniciales;
-    let estado = JSON.parse(localStorage.getItem(STORAGE_ESTADO)) || {};
-    let habitoEditando = null;
-
-    /* =======================
-       RESET DIARIO
-    ======================= */
-    const ultimoDia = localStorage.getItem(STORAGE_ULTIMO_DIA);
-
-    if (ultimoDia !== today) {
-        estado = {};
-        localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
-        localStorage.setItem(STORAGE_ULTIMO_DIA, today);
-        localStorage.setItem(STORAGE_RACHA, localStorage.getItem(STORAGE_RACHA) || 0);
-    }
-
-    guardarHabitos();
-    renderizar();
-
-    /* =======================
-       FUNCIONES
-    ======================= */
-
-    function guardarHabitos() {
-        localStorage.setItem(STORAGE_HABITOS, JSON.stringify(habitos));
-    }
-
-    function renderizar() {
-        contenedor.innerHTML = "";
-
-        habitos.forEach(h => {
-            const div = document.createElement("div");
-            div.className = `habito ${h.importancia}`;
-
-            div.innerHTML = `
-                <label>
-                    <input type="checkbox">
-                    ${h.nombre}
-                </label>
-
-                <div class="acciones">
-                    <button class="editar">✏️</button>
-                </div>
-
-                <span class="importancia">${h.importancia}</span>
-            `;
-
-            const checkbox = div.querySelector("input");
-            checkbox.checked = !!estado[h.id];
-
-            checkbox.addEventListener("change", () => {
-                estado[h.id] = checkbox.checked;
-                localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
-                comprobarRacha();
-            });
-
-            div.querySelector(".editar").addEventListener("click", e => {
-                e.stopPropagation();
-                abrirEditar(h);
-            });
-
-            div.addEventListener("contextmenu", e => {
-                e.preventDefault();
-                if (confirm("¿Eliminar hábito?")) {
-                    habitos = habitos.filter(x => x.id !== h.id);
-                    delete estado[h.id];
-                    guardarHabitos();
-                    renderizar();
-                }
-            });
-
-            contenedor.appendChild(div);
-        });
-    }
-
-    function comprobarRacha() {
-        const habitosAlta = habitos.filter(h => h.importancia === "alta");
-
-        if (habitosAlta.length === 0) return;
-
-        const completados = habitosAlta.every(h => estado[h.id]);
-
-        let racha = parseInt(localStorage.getItem(STORAGE_RACHA)) || 0;
-
-        if (completados) {
-            racha++;
-            localStorage.setItem(STORAGE_RACHA, racha);
-        } else {
-            localStorage.setItem(STORAGE_RACHA, 0);
-        }
-    }
-
-    function abrirEditar(h) {
-        habitoEditando = h;
-        tituloModal.textContent = "Editar hábito";
-        nombreInput.value = h.nombre;
-        importanciaSelect.value = h.importancia;
-        modal.classList.remove("oculto");
-    }
-
-    function abrirNuevo() {
-        habitoEditando = null;
-        tituloModal.textContent = "Nuevo hábito";
-        nombreInput.value = "";
-        importanciaSelect.value = "media";
-        modal.classList.remove("oculto");
-    }
-
-    /* =======================
-       EVENTOS
-    ======================= */
-    btnAgregar.addEventListener("click", abrirNuevo);
-
-    cerrarBtn.addEventListener("click", () => {
-        modal.classList.add("oculto");
-    });
-
-    guardarBtn.addEventListener("click", () => {
-        const nombre = nombreInput.value.trim();
-        const importancia = importanciaSelect.value;
-
-        if (!nombre) return alert("Pon un nombre");
-
-        if (habitoEditando) {
-            habitoEditando.nombre = nombre;
-            habitoEditando.importancia = importancia;
-        } else {
-            habitos.push({
-                id: Date.now().toString(),
-                nombre,
-                importancia
-            });
+    if (data.ultimaFecha !== fechaHoy) {
+        if (data.ultimaFecha !== null) {
+            if (habitosImportantesCompletos()) {
+                data.racha++;
+            } else {
+                data.racha = 0;
+            }
         }
 
-        guardarHabitos();
-        renderizar();
-        modal.classList.add("oculto");
-    });
+        data.ultimaFecha = fechaHoy;
+        data.habitos.forEach(h => h.completado = false);
+        guardar();
+    }
 
-});
+    document.getElementById("rachaNumero").textContent = data.racha;
+}
 
+// ==========================
+// LÓGICA DE HÁBITOS
+// ==========================
+function habitosImportantesCompletos() {
+    return data.habitos
+        .filter(h => h.importancia === "alta" || h.importancia === "vital")
+        .every(h => h.completado);
+}
 
-        // ✏️ BOTÓN EDITAR
-        div.querySelector(".editar").addEventListener("click", (e) => {
-            e.stopPropagation(); // 👈 MUY IMPORTANTE
-            abrirEditar(h);
+// ==========================
+// RENDER
+// ==========================
+const contenedor = document.querySelector(".habitos");
+
+function renderHabitos() {
+    contenedor.innerHTML = "";
+
+    data.habitos.forEach((habito, index) => {
+        const div = document.createElement("div");
+        div.className = `habito ${habito.importancia}`;
+
+        div.innerHTML = `
+            <label>
+                <input type="checkbox" ${habito.completado ? "checked" : ""}>
+                ${habito.nombre}
+            </label>
+            <span class="importancia">${habito.importancia}</span>
+            <button class="editar">✏️</button>
+            <button class="eliminar">🗑</button>
+        `;
+
+        // CHECK
+        div.querySelector("input").addEventListener("change", e => {
+            habito.completado = e.target.checked;
+            guardar();
         });
 
-        // ❌ BORRAR (pulsación larga / clic derecho)
-        div.addEventListener("contextmenu", e => {
-            e.preventDefault();
+        // EDITAR
+        div.querySelector(".editar").addEventListener("click", () => editarHabito(index));
+
+        // ELIMINAR
+        div.querySelector(".eliminar").addEventListener("click", () => {
             if (confirm("¿Eliminar hábito?")) {
-                habitos = habitos.filter(x => x.id !== h.id);
-                delete estado[h.id];
-                guardarHabitos();
-                renderizar();
+                data.habitos.splice(index, 1);
+                guardar();
+                renderHabitos();
             }
         });
 
         contenedor.appendChild(div);
     });
 }
-
-
-    function abrirEditar(habito) {
-        habitoEditando = habito;
-        tituloModal.textContent = "Editar hábito";
-        nombreInput.value = habito.nombre;
-        importanciaSelect.value = habito.importancia;
-        modal.classList.remove("oculto");
-    }
-
-    function abrirNuevo() {
-        habitoEditando = null;
-        tituloModal.textContent = "Nuevo hábito";
-        nombreInput.value = "";
-        importanciaSelect.value = "media";
-        modal.classList.remove("oculto");
-    }
-
-    // ===== BOTONES =====
-    btnAgregar.addEventListener("click", abrirNuevo);
-
-    cerrarBtn.addEventListener("click", () => {
-        modal.classList.add("oculto");
-    });
-
-    guardarBtn.addEventListener("click", () => {
-        const nombre = nombreInput.value.trim();
-        const importancia = importanciaSelect.value;
-
-        if (!nombre) return alert("Pon un nombre");
-
-        if (habitoEditando) {
-            // ✏️ EDITAR
-            habitoEditando.nombre = nombre;
-            habitoEditando.importancia = importancia;
-        } else {
-            // ➕ NUEVO
-            habitos.push({
-                id: Date.now().toString(),
-                nombre,
-                importancia
-            });
-        }
-
-        guardarHabitos();
-        renderizar();
-        modal.classList.add("oculto");
-    });
-
-});
 
     </script>
     <script>
@@ -418,5 +266,6 @@ divFrase.textContent = frases[indice];
 
 
     </script>
+
 
 
