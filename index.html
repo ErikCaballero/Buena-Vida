@@ -43,7 +43,7 @@
 
     <div class="habitos">
 
-        <div class="habito alta">
+        <div class="habito vital">
             <label>
                 <input type="checkbox" data-id="comer">
                 Comer bien
@@ -51,7 +51,7 @@
             <span class="importancia">Vital</span>
         </div>
 
-        <div class="habito alta">
+        <div class="habito vital">
             <label>
                 <input type="checkbox" data-id="agua">
                 Beber 2L de agua
@@ -59,7 +59,7 @@
             <span class="importancia">Vital</span>
         </div>
 
-        <div class="habito alta">
+        <div class="habito vital">
             <label>
                 <input type="checkbox" data-id="dormir">
                 Dormir bien
@@ -67,6 +67,14 @@
             <span class="importancia">Vital</span>
         </div>
 
+        <div class="habito alta">
+            <label>
+                <input type="checkbox" data-id="ejercicio">
+                Hacer ejercicio
+            </label>
+            <span class="importancia">Alta</span>
+        </div>
+        
         <div class="habito media">
             <label>
                 <input type="checkbox" data-id="ejercicio">
@@ -75,14 +83,46 @@
             <span class="importancia">Media</span>
         </div>
 
+        <div class="habito alta">
+            <label>
+                <input type="checkbox" data-id="paseo">
+                Pasear
+            </label>
+            <span class="importancia">alta</span>
+        </div>
+
+        <div class="habito alta">
+            <label>
+                <input type="checkbox" data-id="escribir">
+                Escribir en el cuadernito
+            </label>
+            <span class="importancia">alta</span>
+        </div>
+
         <div class="habito media">
             <label>
-                <input type="checkbox" data-id="aseo">
-                Asearse
+                <input type="checkbox" data-id="meditar">
+                Meditar
             </label>
             <span class="importancia">Media</span>
         </div>
 
+        <div class="habito media">
+            <label>
+                <input type="checkbox" data-id="estudiar">
+                Estudiar
+            </label>
+            <span class="importancia">Media</span>
+        </div>
+
+        <div class="habito media">
+            <label>
+                <input type="checkbox" data-id="dibujar">
+                Dibujar
+            </label>
+            <span class="importancia">Media</span>
+        </div>
+        
         <div class="habito baja">
             <label>
                 <input type="checkbox" data-id="leer">
@@ -91,13 +131,7 @@
             <span class="importancia">Baja</span>
         </div>
 
-        <div class="habito baja">
-            <label>
-                <input type="checkbox" data-id="meditar">
-                Meditar
-            </label>
-            <span class="importancia">Baja</span>
-        </div>
+        
 
     </div>
 
@@ -105,12 +139,21 @@
 </body>
 </html>
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", () => {
 
+    /* =======================
+       FECHA Y STORAGE KEYS
+    ======================= */
     const today = new Date().toISOString().split("T")[0];
+
     const STORAGE_HABITOS = "listaHabitos";
     const STORAGE_ESTADO = "estado_" + today;
+    const STORAGE_RACHA = "racha";
+    const STORAGE_ULTIMO_DIA = "ultimoDia";
 
+    /* =======================
+       ELEMENTOS DEL DOM
+    ======================= */
     const contenedor = document.querySelector(".habitos");
     const btnAgregar = document.getElementById("btnAgregar");
     const modal = document.getElementById("modal");
@@ -120,7 +163,10 @@
     const importanciaSelect = document.getElementById("importanciaHabito");
     const tituloModal = document.getElementById("tituloModal");
 
-    let habitosIniciales = [
+    /* =======================
+       HÁBITOS INICIALES
+    ======================= */
+    const habitosIniciales = [
         { id: "comer", nombre: "Comer bien", importancia: "alta" },
         { id: "agua", nombre: "Beber 2L de agua", importancia: "alta" },
         { id: "dormir", nombre: "Dormir bien", importancia: "alta" },
@@ -130,44 +176,145 @@
 
     let habitos = JSON.parse(localStorage.getItem(STORAGE_HABITOS)) || habitosIniciales;
     let estado = JSON.parse(localStorage.getItem(STORAGE_ESTADO)) || {};
+    let habitoEditando = null;
 
-    let habitoEditando = null; // 👈 CLAVE
+    /* =======================
+       RESET DIARIO
+    ======================= */
+    const ultimoDia = localStorage.getItem(STORAGE_ULTIMO_DIA);
+
+    if (ultimoDia !== today) {
+        estado = {};
+        localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
+        localStorage.setItem(STORAGE_ULTIMO_DIA, today);
+        localStorage.setItem(STORAGE_RACHA, localStorage.getItem(STORAGE_RACHA) || 0);
+    }
 
     guardarHabitos();
     renderizar();
 
-    // ===== FUNCIONES =====
+    /* =======================
+       FUNCIONES
+    ======================= */
+
     function guardarHabitos() {
         localStorage.setItem(STORAGE_HABITOS, JSON.stringify(habitos));
     }
 
     function renderizar() {
-    contenedor.innerHTML = "";
+        contenedor.innerHTML = "";
 
-    habitos.forEach(h => {
-        const div = document.createElement("div");
-        div.className = `habito ${h.importancia}`;
+        habitos.forEach(h => {
+            const div = document.createElement("div");
+            div.className = `habito ${h.importancia}`;
 
-        div.innerHTML = `
-            <label>
-                <input type="checkbox" data-id="${h.id}">
-                ${h.nombre}
-            </label>
+            div.innerHTML = `
+                <label>
+                    <input type="checkbox">
+                    ${h.nombre}
+                </label>
 
-            <div class="acciones">
-                <button class="editar">✏️</button>
-            </div>
+                <div class="acciones">
+                    <button class="editar">✏️</button>
+                </div>
 
-            <span class="importancia">${h.importancia}</span>
-        `;
+                <span class="importancia">${h.importancia}</span>
+            `;
 
-        const checkbox = div.querySelector("input");
-        checkbox.checked = estado[h.id] || false;
+            const checkbox = div.querySelector("input");
+            checkbox.checked = !!estado[h.id];
 
-        checkbox.addEventListener("change", () => {
-            estado[h.id] = checkbox.checked;
-            localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
+            checkbox.addEventListener("change", () => {
+                estado[h.id] = checkbox.checked;
+                localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
+                comprobarRacha();
+            });
+
+            div.querySelector(".editar").addEventListener("click", e => {
+                e.stopPropagation();
+                abrirEditar(h);
+            });
+
+            div.addEventListener("contextmenu", e => {
+                e.preventDefault();
+                if (confirm("¿Eliminar hábito?")) {
+                    habitos = habitos.filter(x => x.id !== h.id);
+                    delete estado[h.id];
+                    guardarHabitos();
+                    renderizar();
+                }
+            });
+
+            contenedor.appendChild(div);
         });
+    }
+
+    function comprobarRacha() {
+        const habitosAlta = habitos.filter(h => h.importancia === "alta");
+
+        if (habitosAlta.length === 0) return;
+
+        const completados = habitosAlta.every(h => estado[h.id]);
+
+        let racha = parseInt(localStorage.getItem(STORAGE_RACHA)) || 0;
+
+        if (completados) {
+            racha++;
+            localStorage.setItem(STORAGE_RACHA, racha);
+        } else {
+            localStorage.setItem(STORAGE_RACHA, 0);
+        }
+    }
+
+    function abrirEditar(h) {
+        habitoEditando = h;
+        tituloModal.textContent = "Editar hábito";
+        nombreInput.value = h.nombre;
+        importanciaSelect.value = h.importancia;
+        modal.classList.remove("oculto");
+    }
+
+    function abrirNuevo() {
+        habitoEditando = null;
+        tituloModal.textContent = "Nuevo hábito";
+        nombreInput.value = "";
+        importanciaSelect.value = "media";
+        modal.classList.remove("oculto");
+    }
+
+    /* =======================
+       EVENTOS
+    ======================= */
+    btnAgregar.addEventListener("click", abrirNuevo);
+
+    cerrarBtn.addEventListener("click", () => {
+        modal.classList.add("oculto");
+    });
+
+    guardarBtn.addEventListener("click", () => {
+        const nombre = nombreInput.value.trim();
+        const importancia = importanciaSelect.value;
+
+        if (!nombre) return alert("Pon un nombre");
+
+        if (habitoEditando) {
+            habitoEditando.nombre = nombre;
+            habitoEditando.importancia = importancia;
+        } else {
+            habitos.push({
+                id: Date.now().toString(),
+                nombre,
+                importancia
+            });
+        }
+
+        guardarHabitos();
+        renderizar();
+        modal.classList.add("oculto");
+    });
+
+});
+
 
         // ✏️ BOTÓN EDITAR
         div.querySelector(".editar").addEventListener("click", (e) => {
@@ -271,4 +418,5 @@ divFrase.textContent = frases[indice];
 
 
     </script>
+
 
