@@ -129,145 +129,121 @@
 </body>
 </html>
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+Para lograr lo que buscas, necesitamos añadir un script de JavaScript que maneje la persistencia de datos (usando localStorage), la lógica de fechas para reiniciar los checkboxes cada día y el cálculo de la racha basado en la importancia.
 
-    const today = new Date().toISOString().split("T")[0];
-    const STORAGE_HABITOS = "listaHabitos";
-    const STORAGE_ESTADO = "estado_" + today;
+Aquí tienes el código completo para añadir antes de cerrar la etiqueta </body>:
 
-    const contenedor = document.querySelector(".habitos");
-    const btnAgregar = document.getElementById("btnAgregar");
-    const modal = document.getElementById("modal");
-    const guardarBtn = document.getElementById("guardarHabito");
-    const cerrarBtn = document.getElementById("cerrarModal");
-    const nombreInput = document.getElementById("nombreHabito");
-    const importanciaSelect = document.getElementById("importanciaHabito");
-    const tituloModal = document.getElementById("tituloModal");
+JavaScript
 
-    let habitosIniciales = [
-        { id: "comer", nombre: "Comer bien", importancia: "Vital" },
-        { id: "agua", nombre: "Beber 2L de agua", importancia: "Vital" },
-        { id: "dormir", nombre: "Dormir bien", importancia: "Vital" },
-        { id: "ejercicio", nombre: "Hacer ejercicio", importancia: "Alta" },
-        { id: "escribir", nombre: "Escribir en el cuaderno", importancia: "Alta" },
-        { id: "meditar", nombre: "Meditar", importancia: "Media" },
-        { id: "paseo", nombre: "Paseo", importancia: "Alta" },
-        { id: "dibujar", nombre: "Dibujar", importancia: "Media" },
-        { id: "leer", nombre: "Leer", importancia: "baja" }
-    ];
+<script>
+    // --- Configuración y Variables ---
+    const rachaElemento = document.getElementById('rachaNumero');
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const hoy = new Date().toLocaleDateString();
 
-    let habitos = JSON.parse(localStorage.getItem(STORAGE_HABITOS)) || habitosIniciales;
-    let estado = JSON.parse(localStorage.getItem(STORAGE_ESTADO)) || {};
-
-    let habitoEditando = null; // 👈 CLAVE
-
-    guardarHabitos();
-    renderizar();
-
-    // ===== FUNCIONES =====
-    function guardarHabitos() {
-        localStorage.setItem(STORAGE_HABITOS, JSON.stringify(habitos));
-    }
-
-    function renderizar() {
-    contenedor.innerHTML = "";
-
-    habitos.forEach(h => {
-        const div = document.createElement("div");
-        div.className = `habito ${h.importancia}`;
-
-        div.innerHTML = `
-            <label>
-                <input type="checkbox" data-id="${h.id}">
-                ${h.nombre}
-            </label>
-
-            <div class="acciones">
-                <button class="editar">✏️</button>
-            </div>
-
-            <span class="importancia">${h.importancia}</span>
-        `;
-
-        const checkbox = div.querySelector("input");
-        checkbox.checked = estado[h.id] || false;
-
-        checkbox.addEventListener("change", () => {
-            estado[h.id] = checkbox.checked;
-            localStorage.setItem(STORAGE_ESTADO, JSON.stringify(estado));
-        });
-
-        // ✏️ BOTÓN EDITAR
-        div.querySelector(".editar").addEventListener("click", (e) => {
-            e.stopPropagation(); // 👈 MUY IMPORTANTE
-            abrirEditar(h);
-        });
-
-        // ❌ BORRAR (pulsación larga / clic derecho)
-        div.addEventListener("contextmenu", e => {
-            e.preventDefault();
-            if (confirm("¿Eliminar hábito?")) {
-                habitos = habitos.filter(x => x.id !== h.id);
-                delete estado[h.id];
-                guardarHabitos();
-                renderizar();
-            }
-        });
-
-        contenedor.appendChild(div);
-    });
-}
-
-
-    function abrirEditar(habito) {
-        habitoEditando = habito;
-        tituloModal.textContent = "Editar hábito";
-        nombreInput.value = habito.nombre;
-        importanciaSelect.value = habito.importancia;
-        modal.classList.remove("oculto");
-    }
-
-    function abrirNuevo() {
-        habitoEditando = null;
-        tituloModal.textContent = "Nuevo hábito";
-        nombreInput.value = "";
-        importanciaSelect.value = "media";
-        modal.classList.remove("oculto");
-    }
-
-    // ===== BOTONES =====
-    btnAgregar.addEventListener("click", abrirNuevo);
-
-    cerrarBtn.addEventListener("click", () => {
-        modal.classList.add("oculto");
-    });
-
-    guardarBtn.addEventListener("click", () => {
-        const nombre = nombreInput.value.trim();
-        const importancia = importanciaSelect.value;
-
-        if (!nombre) return alert("Pon un nombre");
-
-        if (habitoEditando) {
-            // ✏️ EDITAR
-            habitoEditando.nombre = nombre;
-            habitoEditando.importancia = importancia;
+    // --- Lógica de Carga Inicial ---
+    window.onload = () => {
+        const ultimaFecha = localStorage.getItem('ultimaFecha');
+        let racha = parseInt(localStorage.getItem('racha')) || 0;
+        
+        // Si es un nuevo día, desmarcar todo
+        if (ultimaFecha !== hoy) {
+            desmarcarHabitos();
+            
+            // Si ayer no se completó la racha, se reinicia a 0
+            // (Opcional: puedes quitar esto si prefieres que la racha no se pierda)
+            validarRachaAyer(ultimaFecha);
         } else {
-            // ➕ NUEVO
-            habitos.push({
-                id: Date.now().toString(),
-                nombre,
-                importancia
-            });
+            cargarProgreso();
         }
 
-        guardarHabitos();
-        renderizar();
-        modal.classList.add("oculto");
+        actualizarRachaUI();
+    };
+
+    // --- Funciones Principales ---
+
+    function guardarProgreso() {
+        const estado = {};
+        checkboxes.forEach(cb => {
+            estado[cb.dataset.id] = cb.checked;
+        });
+        
+        localStorage.setItem('progresoHabitos', JSON.stringify(estado));
+        localStorage.setItem('ultimaFecha', hoy);
+        
+        verificarYActualizarRacha();
+    }
+
+    function cargarProgreso() {
+        const guardado = JSON.parse(localStorage.getItem('progresoHabitos'));
+        if (guardado) {
+            checkboxes.forEach(cb => {
+                if (guardado[cb.dataset.id]) {
+                    cb.checked = true;
+                }
+            });
+        }
+    }
+
+    function desmarcarHabitos() {
+        checkboxes.forEach(cb => cb.checked = false);
+        localStorage.removeItem('progresoHabitos');
+    }
+
+    function verificarYActualizarRacha() {
+        // Obtenemos todos los hábitos de importancia Alta o Vital
+        const habitosClave = Array.from(document.querySelectorAll('.habito.alta, .habito.vital'));
+        
+        // Verificamos si todos los "importantes" están marcados
+        const todosCompletos = habitosClave.every(div => {
+            return div.querySelector('input').checked;
+        });
+
+        let racha = parseInt(localStorage.getItem('racha')) || 0;
+        const rachaCompletadaHoy = localStorage.getItem('rachaCompletadaHoy') === hoy;
+
+        if (todosCompletos && !rachaCompletadaHoy) {
+            racha++;
+            localStorage.setItem('racha', racha);
+            localStorage.setItem('rachaCompletadaHoy', hoy);
+            lanzarConfeti(); // Efecto visual opcional
+        } else if (!todosCompletos && rachaCompletadaHoy) {
+            // Si desmarca algo vital después de haber ganado la racha
+            racha--;
+            localStorage.setItem('racha', Math.max(0, racha));
+            localStorage.removeItem('rachaCompletadaHoy');
+        }
+
+        actualizarRachaUI();
+    }
+
+    function actualizarRachaUI() {
+        rachaElemento.innerText = localStorage.getItem('racha') || 0;
+    }
+
+    // Escuchar cambios en los checkboxes
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', guardarProgreso);
     });
 
-});
+    // --- Lógica de Reinicio si se salta un día ---
+    function validarRachaAyer(ultimaFecha) {
+        if (!ultimaFecha) return;
 
+        const ayer = new Date();
+        ayer.setDate(ayer.getDate() - 1);
+        const ayerString = ayer.toLocaleDateString();
+
+        // Si la última vez que entró no fue ayer, perdió la racha
+        if (ultimaFecha !== ayerString && ultimaFecha !== hoy) {
+            localStorage.setItem('racha', 0);
+        }
+    }
+
+    function lanzarConfeti() {
+        console.log("¡Felicidades! Racha aumentada.");
+        // Aquí podrías añadir una librería como canvas-confetti
+    }
     </script>
     <script>
         const frases = [
@@ -299,6 +275,7 @@ divFrase.textContent = frases[indice];
 
 
     </script>
+
 
 
 
